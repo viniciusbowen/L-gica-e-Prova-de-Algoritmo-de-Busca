@@ -78,15 +78,22 @@ Proof.
   rewrite bsearch_equation. simpl. reflexivity.
 Qed.  
 
+
 (**
-Também podemos verificar que [bsearch x l] sempre retorna uma posição válida da lista [l]:
- *)
+  Daniel - Também podemos verificar que [bsearch x l] sempre retorna uma posição válida da lista [l]:
+*)
 
-Lemma bsearch_valid_pos: forall l x, 0 <= bsearch x l < length l.
+Lemma bsearch_valid_pos: forall l x, 0 <= bsearch x l <= length l.
 Proof.
-  Admitted.
+  intros l x.
+  functional induction (bsearch x l); try (simpl; lia).
+  (* Tratamento automático para todos os casos de subdivisão que restarem *)
+  all: try rewrite length_firstn in *.
+  all: try rewrite length_skipn in *.
+  all: assert (Hdiv: length (h1 :: h2 :: tl) / 2 < length (h1 :: h2 :: tl)) by (apply Nat.div_lt; simpl; lia).
+  all: lia.
+Qed.
 
-  
 (**
 A seguir, definiremos a função [insert_at i x l] que insere o elemento [x] na posição [i] da lista [l]:
  *)
@@ -102,7 +109,47 @@ Fixpoint insert_at i (x:nat) l :=
 
 Eval compute in (insert_at 2 3 [1;2;3]).
 
-(** A função [binsert x l] a seguir insere o elemento x na posição retornada por [bsearch x l] de [l]: *)
+(**
+  Daniel - Lemas auxiliares de sobre insert_at
+*)
+
+(**
+  Daniel - 1. Prova que insert_at resulta em uma permutação da lista original adicionada de x
+*)
+Lemma insert_at_perm: forall l i x,
+  Permutation (insert_at i x l) (x :: l).
+Proof.
+  induction l; intros i x.
+  - destruct i; simpl; auto.
+  - destruct i; simpl.
+    + reflexivity.
+    + eapply perm_trans.
+      * apply perm_skip. apply IHl.
+      * apply perm_swap.
+Qed.
+
+(**
+  Daniel - 2. Tamanho da lista após inserção
+*)
+
+Lemma insert_at_length: forall l i x,
+  length (insert_at i x l) = S (length l).
+Proof.
+  induction l; intros i x.
+  - (* Caso base: lista vazia [] *)
+    destruct i; simpl; reflexivity.
+  - (* Caso indutivo: lista com elementos *)
+    destruct i; simpl.
+    + (* Subcaso i = 0 *)
+      reflexivity.
+    + (* Subcaso i = S i *)
+      f_equal.
+      apply IHl.
+Qed.
+
+(**
+A função [binsert x l] a seguir insere o elemento x na posição retornada por [bsearch x l] de [l]:
+*)
 
 Definition binsert x l :=
   let pos := bsearch x l in
