@@ -18,13 +18,138 @@
 \newcommand{\tto}{\twoheadrightarrow}
 \newcommand{\ott}{\twoheadleftarrow}
 
-\title{Formalização da correção do algoritmo Bubblesort}
-\author{Nome e matrícula}
+\title{Formalização da correção do algoritmo de ordenação por inserção binária}
+\author{
+  Daniel da Cunha Pereira Luz \textsc -- 211055540 \\
+  Thiago Veras Rodrigues Queiroz \textsc -- 211055370 \\
+  Vinícius Bowen \textsc -- 180079239
+}
 \date{\today}
 
 \begin{document}
 \maketitle
 
-\input{binsertion_sort.v}
+\section{Introdução}
+
+Este relatório documenta a formalização, no assistente de provas Rocq, da
+correção do algoritmo de ordenação por inserção binária
+(\emph{binary insertion sort}). O algoritmo, implementado pela função
+\texttt{binsertion\_sort}, insere cada elemento de uma lista em sua posição
+correta dentro de uma sublista já ordenada, usando uma busca binária
+(\texttt{bsearch}) para localizar essa posição em tempo logarítmico, em vez
+da busca linear usada na inserção tradicional.
+
+Formalmente, a correção do algoritmo é estabelecida por dois resultados
+combinados: que a lista produzida por \texttt{binsertion\_sort} está
+ordenada (\texttt{Sorted le}) e que ela é uma permutação da lista de
+entrada (\texttt{Permutation}). O código-fonte completo com todas as
+definições e provas está disponível no repositório do projeto; neste
+documento, cada integrante descreve em linguagem natural a estratégia de
+prova da parte sob sua responsabilidade.
+
+\section{Correção de \texttt{binsert}}
+\label{sec:thiago}
+
+Esta seção descreve a prova de que a função \texttt{binsert}, que insere um
+elemento \texttt{x} em uma lista já ordenada \texttt{l} na posição indicada
+por \texttt{bsearch}, preserva a ordenação: se \texttt{l} está ordenada,
+então \texttt{insert\_at (bsearch x l) x l} também está.
+
+\subsection{Estratégia geral}
+
+A prova foi dividida em duas partes independentes, que depois se combinam
+no teorema final:
+
+\begin{enumerate}
+  \item Um resultado puramente sobre \texttt{insert\_at}, que não menciona
+        \texttt{bsearch}: se a posição \texttt{i} onde um elemento
+        \texttt{x} vai ser inserido separa corretamente a lista -- todo
+        elemento antes de \texttt{i} é menor ou igual a \texttt{x}, e todo
+        elemento a partir de \texttt{i} é maior ou igual a \texttt{x} --
+        então inserir \texttt{x} na posição \texttt{i} preserva a
+        ordenação da lista original.
+  \item Um resultado sobre \texttt{bsearch}: a posição que ela retorna de
+        fato satisfaz essa condição de separação, desde que a lista de
+        entrada já esteja ordenada.
+\end{enumerate}
+
+Combinando os dois, obtém-se diretamente que \texttt{binsert} preserva a
+ordenação, já que \texttt{binsert x l} é definido como
+\texttt{insert\_at (bsearch x l) x l}.
+
+\subsection{Lemas auxiliares sobre listas ordenadas}
+
+Antes de atacar o resultado principal, foram necessários alguns fatos
+gerais sobre o predicado \texttt{Sorted le}, que não estavam prontos na
+biblioteca padrão na forma exigida:
+
+\begin{itemize}
+  \item Em uma lista ordenada \texttt{a :: l}, o elemento \texttt{a} é
+        menor ou igual a \emph{todos} os elementos de \texttt{l}, não
+        apenas ao primeiro (que é tudo que a definição indutiva de
+        \texttt{Sorted} garante diretamente). Esse fato exige propagar a
+        transitividade da ordem ao longo da lista.
+  \item Um prefixo (\texttt{firstn}) de uma lista ordenada continua
+        ordenado.
+  \item Um sufixo (\texttt{skipn}) de uma lista ordenada continua
+        ordenado.
+  \item Em uma lista ordenada escrita como concatenação \texttt{P ++ a ::
+        Q}, todo elemento de \texttt{P} é menor ou igual a \texttt{a}.
+\end{itemize}
+
+Esses lemas são intuitivamente óbvios, mas cada um exigiu uma indução
+própria sobre a estrutura da lista, já que o predicado \texttt{Sorted}
+enxerga apenas a relação entre elementos consecutivos.
+
+\subsection{Ligando \texttt{bsearch} à ordenação}
+
+O lema central desta parte mostra que, para uma lista ordenada
+\texttt{l}, a posição retornada por \texttt{bsearch x l} realmente separa
+os elementos menores ou iguais a \texttt{x} (antes da posição) dos maiores
+ou iguais a \texttt{x} (a partir da posição). A prova segue por indução
+funcional sobre a definição de \texttt{bsearch}, acompanhando os mesmos
+casos da função: lista vazia, lista unitária (dois subcasos, conforme a
+comparação com \texttt{x}), e a subdivisão da lista ao meio em dois
+subcasos adicionais.
+
+O caso mais delicado é justamente o de subdivisão, quando \texttt{bsearch}
+chama a si mesma recursivamente sobre a metade esquerda ou direita da
+lista. Nesses casos, a posição final é obtida somando um deslocamento
+(\texttt{mid}) ao resultado da chamada recursiva, e foi preciso mostrar que
+separar a lista inteira nessa posição composta equivale a separar primeiro
+pela metade e depois, dentro da metade certa, pela posição recursiva --
+usando a hipótese de indução para a metade escolhida e os fatos sobre
+listas ordenadas mencionados acima para descartar os elementos da outra
+metade (usando a comparação já feita pela própria função entre \texttt{x} e
+o elemento que define o ponto de corte).
+
+\subsection{Uma dificuldade técnica encontrada}
+
+Vale registrar uma adaptação feita durante o desenvolvimento desta parte.
+Na primeira versão da prova do caso de subdivisão à direita, a igualdade
+entre a posição composta (metade + posição recursiva) e a decomposição da
+lista em duas partes foi construída "desmontando" a lista original via
+\texttt{replace ... at N}, escolhendo manualmente qual ocorrência da lista
+deveria ser reescrita. Essa abordagem se mostrou frágil: como a lista e o
+ponto médio haviam sido nomeados com \texttt{set} (e o ponto médio depende
+da própria lista), a contagem de ocorrências ficava imprevisível de uma
+compilação para outra, e a tática falhava tentando unificar com
+metavariáveis em vez da igualdade concreta esperada.
+
+A solução adotada foi substituir essa manipulação por dois lemas gerais e
+independentes de qualquer nomeação auxiliar, que relacionam diretamente
+\texttt{firstn}/\texttt{skipn} de índice \texttt{n + k} com a aplicação
+sucessiva de \texttt{firstn}/\texttt{skipn} de índices \texttt{n} e
+\texttt{k}. Como esses lemas não fazem nenhuma suposição sobre como a
+lista foi construída, a prova deixou de depender de posições de ocorrência
+e ficou direta.
+
+\subsection{Fechando a prova de \texttt{binsert\_correct}}
+
+Com o lema de separação e o resultado sobre \texttt{insert\_at} em mãos, o
+teorema \texttt{binsert\_correct} segue de forma direta: basta instanciar o
+lema de separação com a posição retornada por \texttt{bsearch} e verificar,
+usando o lema de validade de posição \texttt{bsearch\_valid\_pos}, que essa
+posição está dentro dos limites da lista.
 
 \end{document}
