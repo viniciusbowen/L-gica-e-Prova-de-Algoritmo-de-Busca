@@ -12,17 +12,20 @@
 \usepackage[all]{xy}
 
 \usepackage{mathpartir}
+\usepackage{coqdoc}
 \usepackage{tcolorbox}
-\usepackage{amsmath,amssymb}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{multicol}
+\usepackage{enumitem}
 
 \newcommand{\tto}{\twoheadrightarrow}
 \newcommand{\ott}{\twoheadleftarrow}
 
-\title{Formalização da correção do algoritmo de ordenação por inserção binária}
+\title{\textbf{Formalização da Correção do Algoritmo de Ordenação por Inserção Binária}}
 \author{
-  Daniel da Cunha Pereira Luz \textsc -- 211055540 \\
-  Thiago Veras Rodrigues Queiroz \textsc -- 211055370 \\
-  Vinícius Bowen \textsc -- 180079239
+  Daniel da Cunha Pereira Luz \textsc{-- 211055540} \\
+  Thiago Veras Rodrigues Queiroz \textsc{-- 211055370} \\
+  Vinícius Bowen \textsc{-- 180079239}
 }
 \date{\today}
 
@@ -30,80 +33,98 @@
 \maketitle
 
 \section{Introdução}
+Este relatório documenta a formalização, no assistente de provas Rocq, da correção do algoritmo de ordenação por inserção binária (\emph{binary insertion sort}). O algoritmo, implementado pela função \texttt{binsertion\_sort}, insere cada elemento de uma lista em sua posição correta dentro de uma sublista já ordenada, usando uma busca binária (\texttt{bsearch}) para localizar essa posição em tempo logarítmico, em vez da busca linear usada na inserção tradicional.
 
-Este relatório documenta a formalização, no assistente de provas Rocq, da
-correção do algoritmo de ordenação por inserção binária
-(\emph{binary insertion sort}). O algoritmo, implementado pela função
-\texttt{binsertion\_sort}, insere cada elemento de uma lista em sua posição
-correta dentro de uma sublista já ordenada, usando uma busca binária
-(\texttt{bsearch}) para localizar essa posição em tempo logarítmico, em vez
-da busca linear usada na inserção tradicional.
+Formalmente, a correção do algoritmo é estabelecida por dois resultados combinados: que a lista produzida por \texttt{binsertion\_sort} está ordenada (\texttt{Sorted le}) e que ela é uma permutação da lista de entrada (\texttt{Permutation}). O código-fonte completo com todas as definições e provas está disponível no repositório do projeto; neste documento, cada integrante descreve em linguagem natural a estratégia de prova da parte sob sua responsabilidade.
 
-Formalmente, a correção do algoritmo é estabelecida por dois resultados
-combinados: que a lista produzida por \texttt{binsertion\_sort} está
-ordenada (\texttt{Sorted le}) e que ela é uma permutação da lista de
-entrada (\texttt{Permutation}). O código-fonte completo com todas as
-definições e provas está disponível no repositório do projeto; neste
-documento, cada integrante descreve em linguagem natural a estratégia de
-prova da parte sob sua responsabilidade.
-
-\section{Fundamentos e Propriedades Estruturais}
-\label{sec:daniel}
-
+\section{Fundamentos e Propriedades Estruturais} \label{sec:daniel}
 Esta seção detalha o desenvolvimento dos blocos de construção fundamentais do projeto, sob a responsabilidade do integrante Daniel, localizados no arquivo \texttt{src/binsertion\_sort.v}. Esses blocos garantem a validade matemática dos limites das buscas e descrevem as propriedades estruturais de manipulação de listas ao realizar uma inserção direta.
 
-\subsection{Testes de Execução Computacional}
+Para fornecer uma fundamentação formal sólida alinhada aos conceitos da disciplina de Lógica Computacional 1, a especificação e as provas baseiam-se em estruturas indutivas descritas por gramáticas formais. O tipo de dados para os números naturais ($\mathbb{N}$) e as listas de naturais ($\text{list } \mathbb{N}$) são definidos pelas seguintes regras de formação:
+\begin{mathpar}
+\inferrule*[lab={nat\_base}]{~}{0 \in \mathbb{N}}
+\and
+\inferrule*[lab={nat\_rec}]{n \in \mathbb{N}}{S(n) \in \mathbb{N}}
+\and
+\inferrule*[lab={list\_base}]{~}{\text{nil} \in \text{list } \mathbb{N}}
+\and
+\inferrule*[lab={list\_rec}]{x \in \mathbb{N} \quad \ell \in \text{list } \mathbb{N}}{\text{cons}(x, \ell) \in \text{list } \mathbb{N}}
+\end{mathpar}
 
-Antes de iniciar as demonstrações de teoremas gerais, foram definidos cinco lemas de testes computacionais (\coqdoclemma{test0} a \coqdoclemma{test4}). Esses testes realizam a avaliação simbólica e a redução de expressões concretas no interpretador do Rocq. A estratégia de prova desses testes baseia-se na reescrita da equação recursiva da busca binária (\coqdockw{rewrite} \coqdoclemma{bsearch\_equation}) seguida pela simplificação direta (\coqdoctac{simpl}) e reflexividade de igualdade (\coqdoctac{reflexivity}). No caso de barreira onde elementos precisam ser comparados aritmeticamente, utilizou-se a inversão de hipóteses absurdas (\coqdoctac{inversion}) para descartar caminhos impossíveis. Esses testes cumprem a função de sanidade do código, garantindo que a especificação de \coqdocdefinition{bsearch} computa os índices esperados na prática.
+\subsection{Testes de Execução Computacional}
+Antes de iniciar as demonstrações de teoremas gerais, foram definidos cinco lemas de testes computacionais (\coqdoclemma{test0} a \coqdoclemma{test4}). Esses testes realizam a avaliação simbólica e a redução de expressões concretas no interpretador do Rocq. A estratégia de prova desses testes baseia-se na reescrita da equação recursiva da busca binária (\coqdockw{rewrite} \coqdoclemma{bsearch\_equation}) seguida pela simplificação direta (\coqdoctac{simpl}) e reflexividade de igualdade (\coqdoctac{reflexivity}).
+
+Do ponto de vista lógico-computacional, esse processo de redução baseia-se no \textbf{Princípio de Poincaré} (ou conversão por avaliação), que garante a equivalência entre computação sintática e demonstração lógica na teoria de tipos do Rocq. A $\beta\eta\iota$-redução simplifica termos fechados por computação direta no interpretador até que se alcance uma identidade sintática de termos, fechando o objetivo por reflexividade ($\text{refl\_equal}$).
+
+No caso de testes que envolvem comparações aritméticas em ramificações falsas de hipóteses absurdas (por exemplo, quando assumimos uma hipótese contraditória como $1 \le 0$), utilizou-se a inversão de hipóteses absurdas (\coqdoctac{inversion}). Em Dedução Natural, a regra de eliminação do absurdo ($\bot_e$) estabelece que de uma contradição pode-se derivar qualquer proposição. A tática \coqdoctac{inversion} analisa as regras de formação do predicado indutivo aritmético e detecta que nenhuma regra pode construir o termo de desigualdade absurda, descarregando o ramo correspondente e garantindo a sanidade computacional de \coqdocdefinition{bsearch}.
 
 \subsection{Abordagem de Prova: Limites da Busca (\texttt{bsearch\_valid\_pos})}
-
 A função \coqdocdefinition{bsearch} calcula o índice ideal de inserção dividindo recursivamente a lista original ao meio usando as funções auxiliares \coqdocdefinition{firstn} (prefixo) e \coqdocdefinition{skipn} (sufixo). O lema \coqdoclemma{bsearch\_valid\_pos} estabelece que o índice retornado por essa busca sempre respeita os limites físicos da lista, isto é, está no intervalo fechado entre $0$ e o tamanho total da lista.
 
 \begin{mathpar}
-\inferrule* [lab={bsearch\_bounds}]
-  { \coqdocvariable{x} \in \mathbb{N} \\ \coqdocvariable{l} \in \coqdocinductive{list} \ \mathbb{N} }
-  { 0 \le \coqdocdefinition{bsearch} \ \coqdocvariable{x} \ \coqdocvariable{l} \le \text{length}(\coqdocvariable{l}) }
+\inferrule* [lab={bsearch\_bounds}] { x \in \mathbb{N} \quad \ell \in \text{list } \mathbb{N} } { 0 \le \coqdocdefinition{bsearch} \ x \ \ell \le \text{length}(\ell) }
 \end{mathpar}
 
-Como a redução do tamanho da lista em \coqdocdefinition{bsearch} não é linear (não decrementa elemento por elemento), a indução estrutural padrão falha. A abordagem de prova adotada baseia-se em \textbf{indução funcional} (\coqdoctac{functional induction}), estruturando a demonstração passo a passo conforme as ramificações de execução do algoritmo:
+Como a redução do tamanho da lista em \coqdocdefinition{bsearch} não é linear (ou seja, o algoritmo divide a lista em metades e não decrementa elemento por elemento), o princípio clássico de indução estrutural sobre a lista falha. Para contornar essa barreira, a demonstração adota o princípio de \textbf{indução funcional} (\coqdoctac{functional induction}).
 
-\begin{enumerate}
-  \item \textbf{Caso Base 1 (Lista Vazia):} Se a lista for vazia, a função retorna $0$. Como o comprimento de uma lista vazia é $0$, o limite $0 \le 0 \le 0$ é imediato por aritmética elementar.
-  
-  \item \textbf{Caso Base 2 (Lista Unitária):} Se a lista contém apenas um elemento $y$, o algoritmo testa se $x \le y$. Se verdadeiro, retorna $0$; se falso, retorna $1$. Em ambos os caminhos de decisão lógica, o índice resultante está contido nos limites do tamanho da lista unitária ($1$), o que é verificado por análise de casos e simplificação.
-  
-  \item \textbf{Caso Geral 1 (Subdivisão à Esquerda):} Quando o elemento procurado é menor do que o ponto médio, o algoritmo recorre sobre o prefixo da lista obtido via \coqdocdefinition{firstn}. A hipótese de indução garante que o índice retornado é válido dentro dos limites do prefixo. Para estender essa garantia à lista original, a prova reescreve a relação estrutural usando o lema \coqdoclemma{length\_firstn} (que estabelece o comprimento do prefixo como o valor mínimo entre o ponto médio de corte e o tamanho total da lista). Com isso, a propriedade é reduzida a uma desigualdade estritamente aritmética solucionada pelo resolvedor linear (\coqdoctac{lia}).
-  
-  \item \textbf{Caso Geral 2 (Ponto Médio):} Se o elemento procurado coincide com o ponto médio da lista, a função encerra a recursão e retorna diretamente o índice médio. Como a lista neste caso geral possui comprimento maior ou igual a $2$, a prova do limite $0 \le \text{ponto\_m\text{é}dio} \le \text{comprimento}$ decorre de propriedades de divisão inteira por $2$, auxiliadas pelo teorema \coqdoclemma{Nat.div\_lt}.
-  
-  \item \textbf{Caso Geral 3 (Subdivisão à Direita):} Quando o elemento procurado é maior do que o ponto médio, o algoritmo recorre sobre o sufixo obtido via \coqdocdefinition{skipn}, retornando a soma do índice médio com o resultado dessa chamada recursiva. A hipótese de indução garante a validade do índice na sublista. A prova do limite global é concluída utilizando o lema \coqdoclemma{length\_skipn} para relacionar o tamanho do sufixo à diferença aritmética do comprimento total. O resolvedor aritmético unifica os termos e fecha o objetivo demonstrando que a soma das partições preserva o limite superior original.
+A indução funcional constrói um princípio de indução personalizado com base no grafo de chamadas recursivas da função \coqdocdefinition{bsearch}. Se definirmos a propriedade a ser provada como $P(x, \ell, \text{bsearch}(x, \ell))$, a indução funcional gera hipóteses de indução estruturadas de acordo com as ramificações de execução do algoritmo:
+
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Caso Base 1 (Lista Vazia):} Se a lista for vazia ($\ell = []$), o algoritmo retorna diretamente $0$. Como $\text{length}([]) = 0$, o limite $0 \le 0 \le 0$ é imediato por reflexividade aritmética.
+\item \textbf{Caso Base 2 (Lista Unitária):} Se a lista contém apenas um elemento ($\ell = [y]$), o algoritmo testa se $x \le y$. Se verdadeiro, retorna $0$; se falso, retorna $1$. Em ambos os caminhos, o resultado é limitado pelo tamanho total da lista unitária ($1$).
+\item \textbf{Caso Geral 1 (Subdivisão à Esquerda):} Quando o elemento procurado é menor do que o ponto médio ($x < h_2'$), o algoritmo recorre sobre o prefixo da lista obtido via \coqdocdefinition{firstn} de tamanho $\text{mid}$. Pela regra de eliminação do quantificador universal $(\forall_e)$, a hipótese de indução é instanciada para a sublista da esquerda:
+$$H_i: 0 \le \coqdocdefinition{bsearch} \ x \ (\text{firstn} \ \text{mid} \ \ell) \le \text{length}(\text{firstn} \ \text{mid} \ \ell)$$
+Para estender essa propriedade à lista original, a prova reescreve a relação estrutural de tamanho usando o lema aritmético \coqdoclemma{length\_firstn}, que estabelece:
+$$\text{length}(\text{firstn} \ \text{mid} \ \ell) = \min(\text{mid}, \text{length}(\ell))$$
+Como $\text{mid} = \text{length}(\ell) / 2$, as relações de desigualdade linear são unificadas e solucionadas de forma puramente aritmética pelo resolvedor linear (\coqdoctac{lia}), que implementa o algoritmo de eliminação de Fourier-Motzkin para a aritmética de Presburger.
+\item \textbf{Caso Geral 2 (Ponto Médio):} Se o elemento procurado coincide com o ponto médio da lista ($x = h_2'$), a função encerra a recursão e retorna diretamente o índice médio $\text{mid}$. Como a lista possui comprimento maior ou igual a $2$, provar que $0 \le \text{mid} \le \text{length}(\ell)$ decorre de propriedades de divisão inteira por $2$, auxiliadas pelo teorema \coqdoclemma{Nat.div\_lt}.
+\item \textbf{Caso Geral 3 (Subdivisão à Direita):} Quando o elemento procurado é maior do que o ponto médio ($x > h_2'$), o algoritmo recorre sobre o sufixo obtido via \coqdocdefinition{skipn}, retornando a soma do índice médio $\text{mid}$ com o resultado da chamada recursiva. A hipótese de indução garante a validade do índice na sublista:
+$$H_i: 0 \le \coqdocdefinition{bsearch} \ x \ (\text{skipn} \ \text{mid} \ \ell) \le \text{length}(\text{skipn} \ \text{mid} \ \ell)$$
+O limite global superior é deduzido utilizando o lema \coqdoclemma{length\_skipn}, que relaciona o tamanho do sufixo com a diferença aritmética:
+$$\text{length}(\text{skipn} \ \text{mid} \ \ell) = \text{length}(\ell) - \text{mid}$$
+Substituindo essa identidade e somando $\text{mid}$ em todos os lados da desigualdade da hipótese de indução, o resolvedor linear (\coqdoctac{lia}) unifica os termos e fecha o objetivo demonstrando que a soma das partições preserva estritamente o limite superior original.
 \end{enumerate}
 
 \subsection{Abordagem de Prova: Propriedades Estruturais de \texttt{insert\_at}}
+A função \coqdocdefinition{insert\_at} $i$ $x$ $\ell$ insere o elemento $x$ no índice $i$ da lista $\ell$. As demonstrações das propriedades essenciais dessa função basearam-se no princípio de indução estrutural clássico sobre a lista $\ell$, cuja especificação lógica corresponde ao seguinte axioma de segunda ordem:
+$$\forall P, \left( P([]) \wedge \forall y \forall \ell', (P(\ell') \rightarrow P(y :: \ell')) \right) \rightarrow \forall \ell, P(\ell)$$
 
-A função \coqdocdefinition{insert\_at} \coqdocvariable{i} \coqdocvariable{x} \coqdocvariable{l} insere o elemento \coqdocvariable{x} no índice \coqdocvariable{i} da lista \coqdocvariable{l}. As demonstrações das propriedades essenciais dessa função seguiram abordagens indutivas bem delimitadas:
+\begin{itemize}[leftmargin=*]
+\item \textbf{Prova de Conservação de Tamanho (\coqdoclemma{insert\_at\_length}):} O lema garante que a inserção incrementa o comprimento da lista em exatamente uma unidade.
+\begin{mathpar}
+\inferrule* [lab={insert\_length}] { x, i \in \mathbb{N} \quad \ell \in \text{list } \mathbb{N} } { \text{length}(\coqdocdefinition{insert\_at} \ i \ x \ \ell) = S(\text{length}(\ell)) }
+\end{mathpar}
 
-\begin{itemize}
-  \item \textbf{Prova de Conservação de Tamanho (\coqdoclemma{insert\_at\_length}):} O lema garante que a inserção incrementa o comprimento da lista em exatamente uma unidade.
-  
-  \begin{mathpar}
-  \inferrule* [lab={insert\_length}]
-    { \coqdocvariable{x}, \coqdocvariable{i} \in \mathbb{N} \\ \coqdocvariable{l} \in \coqdocinductive{list} \ \mathbb{N} }
-    { \text{length}(\coqdocdefinition{insert\_at} \ \coqdocvariable{i} \ \coqdocvariable{x} \ \coqdocvariable{l}) = S(\text{length}(\coqdocvariable{l})) }
-  \end{mathpar}
-  
-  A abordagem utilizou indução estrutural sobre a lista \coqdocvariable{l} combinada com a análise de casos sobre o índice de destino \coqdocvariable{i}. Para o caso base (lista vazia), a inserção resulta trivialmente em uma lista unitária de tamanho $1$. Para o caso indutivo, se o índice for sucessor de outro valor, a recursão percorre a lista até encontrar a posição correta. O passo indutivo foi solucionado aplicando o lema de igualdade de construtores \coqdoctac{f\_equal} (reduzindo a igualdade de sucessores à igualdade de seus argumentos), permitindo o casamento perfeito com a hipótese de indução.
+A abordagem de prova seguiu por indução estrutural sobre a lista $\ell$, combinada com análise de casos sob o índice de destino $i$ utilizando as regras do quantificador universal $(\forall_i)$ e $(\forall_e)$:
+\begin{enumerate}[leftmargin=*]
+\item \textbf{Caso Base ($\ell = []$):} Queremos mostrar $\forall i \forall x, \text{length}(\text{insert\_at} \ i \ x \ []) = S(\text{length}([])) = S(0)$. Fazendo análise de casos sob $i \in \mathbb{N}$:
+  - Se $i = 0$, então por definição $\text{insert\_at} \ 0 \ x \ [] = [x]$, cujo comprimento é $1 = S(0)$.
+  - Se $i = S(k)$, então por definição $\text{insert\_at} \ (S(k)) \ x \ [] = [x]$, cujo comprimento é $1 = S(0)$.
+  Ambos os ramos são triviais por definição e reflexividade.
+\item \textbf{Caso Indutivo ($\ell = h :: t$):} Assumimos a hipótese de indução para a cauda da lista:
+  $$H_i: \forall i \forall x, \text{length}(\text{insert\_at} \ i \ x \ t) = S(\text{length}(t))$$
+  Queremos provar que:
+  $$\forall i \forall x, \text{length}(\text{insert\_at} \ i \ x \ (h :: t)) = S(\text{length}(h :: t)) = S(S(\text{length}(t)))$$
+  Fazendo análise de casos sobre o índice $i$:
+  - Se $i = 0$, temos por definição que $\text{insert\_at} \ 0 \ x \ (h :: t) = x :: h :: t$, cujo tamanho é $S(\text{length}(h :: t))$, o que fecha por reflexividade.
+  - Se $i = S(k)$, a expressão por definição de recursão de `insert\_at` torna-se $h :: \text{insert\_at} \ k \ x \ t$. O tamanho dessa lista é $S(\text{length}(\text{insert\_at} \ k \ x \ t))$. Pela regra de congruência funcional de igualdades (tática \coqdoctac{f\_equal}):
+    $$\frac{\text{length}(\text{insert\_at} \ k \ x \ t) = S(\text{length}(t))}{S(\text{length}(\text{insert\_at} \ k \ x \ t)) = S(S(\text{length}(t)))} (\text{congruência})$$
+    A premissa da regra de congruência é exatamente a hipótese de indução desprovida de quantificadores através de $(\forall_e)$ instanciada para $k$ e $x$. Logo, o objetivo é fechado de forma limpa.
+\end{enumerate}
 
-  \item \textbf{Prova de Preservação de Conteúdo (\coqdoclemma{insert\_at\_perm}):} Demonstra que a lista resultante após a inserção é uma permutação válida da lista de entrada com o novo elemento anexado à cabeça (\coqdocvariable{x} :: \coqdocvariable{l}).
-  
-  A prova seguiu por indução estrutural na lista \coqdocvariable{l}. O caso base e o subcaso de inserção na cabeça da lista ($i=0$) são triviais. No caso indutivo geral, onde o elemento é inserido na cauda recursivamente, a hipótese de indução garante que a sublista alterada é uma permutação de sua forma com $x$ anexado. A partir dessa premissa, a prova aplicou a regra de congruência de cabeça de permutações (\coqdoclemma{perm\_skip}) para estender a relação e utilizou as regras de transitividade (\coqdoclemma{perm\_trans}) e simetria de vizinhos adjacentes (\coqdoclemma{perm\_swap}) da biblioteca padrão do Rocq para provar que a alteração de posição intermediária preserva a equivalência do conjunto final.
+\item \textbf{Prova de Preservação de Conteúdo (\coqdoclemma{insert\_at\_perm}):} Demonstra que a lista resultante após a inserção é uma permutação válida da lista de entrada com o novo elemento anexado à cabeça ($x :: \ell$).
+A prova seguiu por indução estrutural na lista $\ell$. O caso base e o subcaso de inserção na cabeça da lista ($i=0$) são imediatos por reflexividade da relação de permutação. No caso indutivo geral ($\ell = h :: t$), onde o elemento é inserido na cauda recursivamente ($i = S(k)$), a hipótese de indução garante que a sublista alterada é uma permutação de sua forma com $x$ anexado:
+$$H_{ih}: \text{Permutation}(\text{insert\_at} \ k \ x \ t, \ x :: t)$$
+A partir dessa premissa, a prova aplicou a regra de congruência de cabeça de permutações (\coqdoclemma{perm\_skip}) para obter:
+$$\inferrule*[lab={perm\_skip}]{\text{Permutation}(\text{insert\_at} \ k \ x \ t, \ x :: t)}{\text{Permutation}(h :: \text{insert\_at} \ k \ x \ t, \ h :: x :: t)}$$
+Em seguida, utilizou-se a regra de simetria de vizinhos adjacentes (\coqdoclemma{perm\_swap}) para realizar a transposição de cabeça:
+$$\inferrule*[lab={perm\_swap}]{~}{\text{Permutation}(h :: x :: t, \ x :: h :: t)}$$
+Por fim, aplicando a regra de transitividade de permutações (\coqdoclemma{perm\_trans}) sobre os dois passos dedutivos anteriores, o Rocq pôde unificar as pontas de equivalência e fechar o teorema provando que a inserção em qualquer posição intermediária preserva o conjunto de elementos original de forma rigorosa:
+$$\inferrule*[lab={perm\_trans}]{\text{Permutation}(h :: \text{insert\_at} \ k \ x \ t, \ h :: x :: t) \\ \text{Permutation}(h :: x :: t, \ x :: h :: t)}{\text{Permutation}(h :: \text{insert\_at} \ k \ x \ t, \ x :: h :: t)}$$
 \end{itemize}
 
 \subsection{Desafios e Adaptações de Automação no Rocq 9}
-
-Durante o desenvolvimento no Rocq 9, o principal desafio residiu na instabilidade da tática de indução funcional ao lidar com nomes dinâmicos de variáveis gerados pelo compilador (como sublistas intermediárias). Scripts de prova que citavam variáveis diretamente falhavam em atualizações do ambiente do assistente. 
-
+Durante o desenvolvimento no Rocq 9, o principal desafio residiu na instabilidade da tática de indução funcional ao lidar com nomes dinâmicos de variáveis gerados pelo compilador (como sublistas intermediárias). Scripts de prova que citavam variáveis diretamente falhavam em atualizações do ambiente do assistente.
 Para contornar essa fragilidade e tornar as demonstrações robustas, o script de \coqdoclemma{bsearch\_valid\_pos} foi reestruturado para ser executado em lote por meio do combinador \coqdoctac{all:}, aplicando táticas baseadas unicamente em estruturas de tipos (como \coqdoclemma{length\_firstn} e \coqdoclemma{length\_skipn}) e permitindo que o resolvedor aritmético resolvesse todos os ramos recursivos simultaneamente sem apelo a nomes dinâmicos. Adicionalmente, na prova de tamanho, a hipótese de indução apresentava-se sob uma quantificação universal aberta (\coqdockw{forall} \coqdocvariable{i} \coqdocvariable{x}), o que impedia sua aplicação direta pelo resolvedor automático. Isso foi solucionado pela introdução da tática de desestruturação funcional \coqdoctac{f\_equal} para remover construtores externos antes da unificação dos tipos.
 
 O desenvolvimento bem-sucedido dessas propriedades forneceu ao Thiago e ao Vinícius as garantias de estabilidade de índices e invariantes de permutações necessárias para a prova dos teoremas de ordenação global do projeto.
