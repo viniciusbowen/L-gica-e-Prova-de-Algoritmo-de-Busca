@@ -232,4 +232,53 @@ separação à posição retornada por \texttt{bsearch} e utilizar
 \texttt{bsearch\_valid\_pos} para garantir que essa posição pertence aos
 limites da lista.
 
+\section{Conclusão e Prova do Teorema Final}
+\label{sec:vinicius}
+
+O teorema principal do projeto, \texttt{binsertion\_sort\_correct}, consolida o trabalho estabelecendo que, para qualquer lista de entrada $l$, o algoritmo \texttt{binsertion\_sort} retorna uma lista simultaneamente ordenada e que consiste em uma permutação exata da lista original[cite: 1].
+
+A demonstração deste teorema é construída de forma direta por indução estrutural sobre a lista $l$, o que divide a estratégia em dois objetivos de prova principais[cite: 2]:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Caso Base (Lista Vazia):} O primeiro objetivo avalia a correção do algoritmo para uma lista sem elementos (\texttt{[]})[cite: 2].
+    \begin{itemize}[leftmargin=*]
+        \item Inicialmente, utiliza-se a tática \texttt{split} para separar a conjunção lógica ($\land$), permitindo o tratamento da ordenação e da permutação de forma isolada[cite: 2].
+        \item A primeira ramificação da árvore requer a prova de que a lista vazia está ordenada. Esse passo é solucionado trivialmente pela aplicação do axioma \texttt{Sorted\_nil} da biblioteca padrão \texttt{Sorted}[cite: 2].
+        \item A segunda ramificação exige provar que a lista vazia é uma permutação de si mesma. O objetivo é provado imediatamente pelo termo de reflexividade \texttt{Permutation\_refl} da biblioteca \texttt{Permutation}[cite: 2].
+    \end{itemize}
+
+    \item \textbf{Passo Indutivo (Lista com Elementos):} O segundo objetivo assume como premissa a hipótese de indução para a cauda da lista (\texttt{tl}) e busca demonstrar a validade do teorema para a lista conectada (\texttt{h :: tl})[cite: 2].
+    \begin{itemize}[leftmargin=*]
+        \item O primeiro passo consiste em desestruturar a hipótese de indução por meio da tática \texttt{destruct}, dividindo-a explicitamente em duas garantias: a de ordenação (\texttt{Hsorted}) e a de permutação (\texttt{Hperm}) da sublista[cite: 2].
+        \item Aplica-se novamente a tática \texttt{split} para bifurcar o objetivo atual[cite: 2].
+        \item A primeira ramificação exige demonstrar o predicado de ordenação: \texttt{Sorted le (binsertion\_sort (h :: tl))}[cite: 2]. A solução é alcançada aplicando o lema central \texttt{binsert\_correct} (demonstrado na seção anterior), repassando a hipótese de que a sublista já está ordenada[cite: 1, 2].
+        \item A segunda ramificação busca comprovar a invariância estrutural. Para fechar a prova, basta aplicar o lema auxiliar de permutação \texttt{binsertion\_sort\_Perm}, estruturado unicamente para esse propósito[cite: 2].
+    \end{itemize}
+\end{itemize}
+
+Com o fechamento livre de falhas dessas ramificações, a prova do teorema final é concluída. Isso demonstra que a formalização em Dedução Natural integra com sucesso os limites da busca binária e as propriedades de inserção, garantindo matematicamente que a função \texttt{binsertion\_sort} cumpre as especificações de ordenação integral do projeto[cite: 1].
+
+Para ilustrar a estrutura lógica descrita, a árvore de demonstração em Dedução Natural do teorema final é formalizada a seguir:
+
+\newpage
+\begin{mathpar}
+\inferrule*[lab={$\land_I$ (Base)}]
+  { \inferrule*[lab={Sorted\_nil}]{~}{\text{Sorted le } (\text{binsertion\_sort } [])} \\
+    \inferrule*[lab={Perm\_refl}]{~}{\text{Permutation } [] \ (\text{binsertion\_sort } [])} }
+  { \text{Sorted le } (\text{binsertion\_sort } []) \land \text{Permutation } [] \ (\text{binsertion\_sort } []) }
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[lab={$\land_I$ (Indutivo)}]
+  { \inferrule*[lab={binsert\_correct}]{ \text{Sorted le } (\text{binsertion\_sort } tl) }{ \text{Sorted le } (\text{binsertion\_sort } (h :: tl)) } \\
+    \inferrule*[lab={binsert\_Perm}]{ \text{Permutation } tl \ (\text{binsertion\_sort } tl) }{ \text{Permutation } (h :: tl) \ (\text{binsertion\_sort } (h :: tl)) } }
+  { \text{Sorted le } (\text{binsertion\_sort } (h :: tl)) \land \text{Permutation } (h :: tl) \ (\text{binsertion\_sort } (h :: tl)) }
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[lab={List\_Ind}]
+  { \text{Caso Base} \\ \text{Passo Indutivo} }
+  { \forall l, \text{Sorted le } (\text{binsertion\_sort } l) \land \text{Permutation } l \ (\text{binsertion\_sort } l) }
+\end{mathpar}
+
 \end{document}

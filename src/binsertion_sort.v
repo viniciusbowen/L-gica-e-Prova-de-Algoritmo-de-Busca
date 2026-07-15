@@ -40,7 +40,7 @@ Proof.
     + simpl length. apply Nat.lt_le_incl. apply Nat.div_lt.
       * lia.
       * auto.
-  - intros. rewrite <- teq1. rewrite length_skipn. simpl length. apply Nat.sub_lt.
+  - intros. rewrite <- teq1. rewrite skipn_length. simpl length. apply Nat.sub_lt.
     + apply Nat.lt_le_incl. apply Nat.div_lt.
       * lia.
       * auto.
@@ -89,7 +89,7 @@ Proof.
   functional induction (bsearch x l); try (simpl; lia).
   (* Tratamento automático para todos os casos de subdivisão que restarem *)
   all: try rewrite length_firstn in *.
-  all: try rewrite length_skipn in *.
+  all: try rewrite skipn_length in *.
   all: assert (Hdiv: length (h1 :: h2 :: tl) / 2 < length (h1 :: h2 :: tl)) by (apply Nat.div_lt; simpl; lia).
   all: lia.
 Qed.
@@ -402,13 +402,13 @@ Proof.
       subst z. apply Nat.leb_gt in e0. lia.
     + intros z Hz. simpl in Hz. contradiction.
   (* Caso l2 = [] : impossível, pois mid < length l quando
-     length l >= 2 (usar Nat.div_lt + length_skipn para contradição). *)
+     length l >= 2 (usar Nat.div_lt + skipn_length para contradição). *)
   - exfalso.
     assert (Hmid_lt: length (h1 :: h2 :: tl) / 2 < length (h1 :: h2 :: tl)).
     { simpl length. apply Nat.div_lt; lia. }
     assert (Hskip_len: length (skipn (length (h1 :: h2 :: tl) / 2) (h1 :: h2 :: tl))
                       = length (h1 :: h2 :: tl) - length (h1 :: h2 :: tl) / 2).
-    { apply length_skipn. }
+    { apply skipn_length. }
     rewrite e0 in Hskip_len.
     simpl length in Hmid_lt.
     simpl length in Hskip_len.
@@ -545,7 +545,7 @@ Proof.
   - intros. rewrite firstn_length_le.
     + simpl length. apply Nat.div_lt; lia.
     + simpl length. apply Nat.lt_le_incl. apply Nat.div_lt; lia.
-  - intros. rewrite <- teq1. rewrite length_skipn. apply Nat.sub_lt.
+  - intros. rewrite <- teq1. rewrite skipn_length. apply Nat.sub_lt.
     + simpl length. apply Nat.lt_le_incl. apply Nat.div_lt; lia.
     + simpl length. apply Nat.div_str_pos. lia.
 Defined.
@@ -558,7 +558,10 @@ Qed.
 (** As funções [binsert] e [binsert'] realizam o mesmo trabalho: *)
 
 Lemma binsert_equiv_binsert': forall l x, binsert x l = binsert' x l.
-Proof.
+Proof. 
+  intros l x. functional induction (binsert' x l).
+  simpl. try reflexivity.
+  - admit.
 Admitted.
 
 (**
@@ -580,9 +583,62 @@ Fixpoint binsertion_sort (l: list nat) :=
 
 (** O teorema a seguir caracteriza a correção do algoritmo [binsertion_sort]. Observe que pode ser conveniente dividir esta prova em outras provas menores. Isto significa que a formalização pode ficar mais simples e mais organizada com a inclusão de novos lemas. *)
 
+(**---------------------------------------
+VINICIUS
+ **)
+(** 1. Lema de Permutação do binsert *)
+Lemma binsert_perm: forall l x, Permutation (x :: l) (binsert x l).
+Proof.
+  intros l x.
+  unfold binsert.
+  (* Aplicamos a simetria para alinhar com o lema do Daniel *)
+  apply Permutation_sym. 
+  apply insert_at_perm.
+Qed.
+
+(** 2. A ordenação do algoritmo principal *)
+Lemma binsertion_sort_Sorted: forall l, Sorted le (binsertion_sort l).
+Proof.
+  induction l as [| h tl IH].
+  - (* Caso base: lista vazia *)
+    simpl. constructor.
+  - (* Caso indutivo: lista h :: tl *)
+    simpl.
+    (* O Thiago provou que binsert preserva a ordenação. 
+       Pela Hipótese Indutiva (IH), (binsertion_sort tl) já está ordenado. *)
+    apply binsert_correct.
+    exact IH.
+Qed.
+
+(** 3. A permutação do algoritmo principal *)
+Lemma binsertion_sort_Perm: forall l, Permutation l (binsertion_sort l).
+Proof.
+  induction l as [| h tl IH].
+  - (* Caso base: lista vazia *)
+    simpl. constructor.
+  - (* Caso indutivo: lista h :: tl *)
+    simpl.
+    (* Precisamos provar que h::tl é permutação de binsert h (binsertion_sort tl).
+       Faremos isso em dois saltos usando a transitividade. *)
+    eapply perm_trans.
+    + (* Salto 1: h::tl é permutação de h::(binsertion_sort tl) *)
+      apply perm_skip. exact IH.
+    + (* Salto 2: h::(binsertion_sort tl) é permutação de binsert h (binsertion_sort tl) *)
+      apply binsert_perm.
+Qed.
+
+
+
 Theorem binsertion_sort_correct: forall l, Sorted le (binsertion_sort l) /\ Permutation l (binsertion_sort l).
 Proof.
-  Admitted.
+  intros l. induction l as [| h tl IH].
+  - split.
+    + simpl. apply Sorted_nil.
+    + simpl. apply Permutation_refl.
+  - destruct IH as [Hsorted Hperm].
+    split.
+    + apply binsert_correct. assumption.
+    + apply binsertion_sort_Perm.
+Qed.
 
 (** Repositório: %\url{https://github.com/flaviodemoura/binsertion_sort}% *)
-
